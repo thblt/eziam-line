@@ -28,251 +28,336 @@
 
 ;;; Code:
 
-(require 'kurecolor)
-(require 'powerline)
 (require 'server)
 
-(setq x-underline-at-descent-line t
-      powerline-gui-use-vcs-glyph t)
+;;;; Variables
 
-;;;;; Faces (and cursor!)
+(defvar eziam-line--selected-window nil
+  "The currently selected windom.")
 
-(defun thblt/mode-line-set-faces (&rest _) ; I'm hooking this on theme change so it needs to accept arguments
-  "Configure faces for the mode-line."
-  (interactive)
-  (pl/reset-cache)
+;;;; Faces
 
-  (let* ((dark (< (kurecolor-hex-get-brightness (face-attribute 'default :background)) .5))
+;;;;; Faces declaration
 
-         (buffid-bg (if dark "#fff" "#000"))
-         (buffid-bg-inactive (if dark "#777" "#aaa"))
+(defgroup eziam-line-faces nil
+  "Faces for the Eziam mode line."
+  :group 'faces)
 
-         (inactive (if dark "#111111" "#dddddd")))
+(defface eziam-line-buffer-id
+  '((t (:inherit mode-line)))
+  "Buffer ID segment in Eziam-Line (active)"
+  :group 'eziam-line-faces)
 
-    ;; Modeline
-    (face-spec-set 'mode-line
-                   `((t
-                      :background ,(if dark "#334" "#667")
-                      :foreground ,(if dark "#ffe" "#ffe")
-                      :overline ,(if dark "#667" "#334")
-                      :underline ,(if dark "#667" "#334"))))
+(defface eziam-line-project-id
+  '((t (:inherit mode-line)))
+  ""
+  :group 'eziam-line-faces)
 
-    ;; Inactive mode line (invisible)
-    (face-spec-set 'mode-line-inactive
-                   `((t
-                      :background ,inactive
-                      :foreground ,inactive
-                      :overline ,(if dark "#444" "#fff")
-                      :underline ,(if dark "#444" "#fff"))))
+(defface eziam-line-project-id-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-project-buffer-transition
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-buffer-id-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-buffer-modified
+  '((t (:inherit mode-line)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-buffer-modified-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-buffer-read-only
+  '((t (:inherit mode-line)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-buffer-read-only-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-buffer-narrowed
+  '((t (:inherit mode-line)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-buffer-narrowed-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-project-id
+  '((t (:inherit mode-line)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-project-id-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-delimiter
+  '((t (:inherit mode-line)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-delimiter-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-minor-mode
+  '((t (:inherit mode-line)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-minor-mode-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-server
+  '((t (:inherit mode-line)))
+  ""
+  :group 'eziam-line-faces)
+
+(defface eziam-line-server-inactive
+  '((t (:inherit mode-line-inactive)))
+  ""
+  :group 'eziam-line-faces)
+
+;;;;; Theme template
+
+(cl-defmacro eziam-line--apply-basic-theme
+    (name &key
+          line
+          line-inactive
+          default-bg
+          default-bg-inactive
+          default-fg
+          default-fg-inactive
+          buffid-bg
+          buffid-bg-inactive
+          buffid-fg
+          buffid-fg-inactive
+          buffmodified-fg
+          buffmodified-fg-inactive)
+  "Set Eziam-Line faces for a theme called NAME with provided colors.
+
+The keyword arguments LINE, LINE-INACTIVE, DEFAULT-BG, ,
+DEFAULT-BG-INACTIVE, DEFAULT-FG, DEFAULT-FG-INACTIVE, BUFFID-BG,
+BUFFID-BG-INACTIVE, BUFFID-FG, BUFFID-FG-INACTIVE,
+BUFFMODIFIED-FG and BUFFMODIFIED-FG-INACTIVE configure the
+colors.  See the source for their use."
+  (declare (indent 1))
+  `(progn
+     (custom-theme-set-faces
+      ,name
+      '(mode-line                            ((t (:background ,default-bg :foreground ,default-fg :overline ,line :underline ,line))))
+      '(mode-line-inactive                   ((t (:background ,default-bg-inactive :foreground ,default-fg-inactive :overline ,line-inactive :underline ,line-inactive))))
+      '(eziam-line-project-id                ((t (:background "#77cc00" :foreground "#000000"))))
+      '(eziam-line-project-id-inactive       ((t ())))
+      '(eziam-line-project-buffer-transition ((t (:background ,buffid-bg :foreground "#77cc00" ))))
+      '(eziam-line-buffer-id                 ((t (:background ,buffid-bg :foreground ,buffid-fg))))
+      '(eziam-line-buffer-id-inactive        ((t (:background ,buffid-bg-inactive :foreground ,buffid-fg-inactive))))
+      '(eziam-line-buffer-modified           ((t (:background ,buffid-bg :foreground ,buffmodified-fg))))
+      '(eziam-line-buffer-modified-inactive  ((t (:background ,buffid-bg-inactive :foreground ,buffmodified-fg-inactive))))
+      '(eziam-line-buffer-read-only          ((t (:background ,buffid-bg :foreground ,buffmodified-fg))))
+      '(eziam-line-buffer-read-only-inactive ((t (:background ,buffid-bg-inactive :foreground ,buffmodified-fg-inactive))))
+      '(eziam-line-narrowing                 ((t ())))
+      '(eziam-line-narrowing-inactive        ((t ())))
+      '(eziam-line-delimiter                 ((t ())))
+      '(eziam-line-delimiter-inactive        ((t ())))
+      '(eziam-line-minor-mode                ((t ())))
+      '(eziam-line-minor-mode-inactive       ((t ())))
+      '(eziam-line-server                    ((t ())))
+      '(eziam-line-server-inactive           ((t ()))))
+     (custom-theme-set-variables
+      ,name
+      '(x-underline-at-descent-line t)
+      '(powerline-gui-use-vcs-glyph t))))
+
+;;;; Line
 
 
-    (face-spec-set 'thblt/mode-line--window-id
-                   `((t
-                      :background "#ffcc33"
-                      :foreground "#000000")))
-
-    (face-spec-set 'thblt/mode-line--buffer-id
-                   `((t
-                      :background ,buffid-bg
-                      :foreground ,(if dark "#000" "#fff"))))
-
-    (face-spec-set 'thblt/mode-line--buffer-id-inactive
-                   `((t
-                      :background "#555555"
-                      :foreground ,(if dark "#000" "#fff"))))
-
-
-    (face-spec-set 'thblt/mode-line--window-id-inactive
-                   `((t
-                      :background "#444444"
-                      :foreground "#ffcc33")))
-
-    (face-spec-set 'thblt/mode-line--buffer-modified
-                   `((t
-                      :background ,buffid-bg
-                      :foreground "#ff0000")))
-
-    (face-spec-set 'thblt/mode-line--buffer-modified-inactive
-                   `((t
-                      :inherit thblt-mode-line--buffer-modified
-                      :background ,buffid-bg-inactive)))
-
-    (face-spec-set 'thblt/mode-line--buffer-read-only
-                   `((t
-                      :background ,buffid-bg-inactive
-                      :foreground "#ff0000"))) ;
-
-    ;; Narrowing indicator
-    (face-spec-set 'thblt/mode-line--buffer-narrowed
-                   `((t
-                      :background ,buffid-bg
-                      :foreground "#888888")))
-
-    ;; Minor mode lighter
-    (face-spec-set 'thblt/mode-line--minor-mode
-                   `((t)))
-
-    ;; Server ON face
-    (face-spec-set 'thblt/mode-line--server
-                   `((t
-                      :foreground "#fe3"
-                      :weight bold)))
-
-    ;; Delimiter
-    (face-spec-set 'thblt/mode-line--delimiter
-                   `((t
-                      :foreground "#97978D")))))
-
-;;;;; Theme
-
-(defmacro thblt/face-maybe-inactive (face)
+(defmacro eziam-line--face-maybe-inactive (face)
   (let ((inac (intern (format "%s-inactive" face))))
     `(if active ',face ',inac)))
 
-(defun thblt/powerline-theme ()
+(defun eziam-line-separator-left (left right)
+  (let ((bg (face-attribute right :background))
+        (fg (face-attribute left :background)))
+    (propertize "" 'face `(:background ,bg :foreground ,fg))))
+    ;; (message "%s %s %s %s" bg fg left right)
+
+(defmacro eziam-line--maybe (&rest body)
+  `(or
+    ,@body
+    ""))
+
+(defmacro eziam-line--when-let (def &rest body)
+  `(let ((it ,def))
+     (if (not it)
+         ""
+       ,@body)))
+
+(setq-default mode-line-format
+'("%e" mode-line-front-space mode-line-mule-info mode-line-client mode-line-modified mode-line-remote mode-line-frame-identification mode-line-buffer-identification "   " mode-line-position
+  (vc-mode vc-mode)
+ "  " mode-line-modes mode-line-misc-info mode-line-end-spaces))
+
+
+
+;;;###autoload
+(defun eziam-line-install ()
   "Setup the default mode-line."
-
-  ;; MAINTENANCE NOTES
-  ;;
-  ;; the `mode-line' face isn't used, because the whole modeline color
-  ;; is determined by the current Evil mode.
-
   (interactive)
   (setq-default
    mode-line-format
-   '("%e"
-     (:eval
-      (let* ((active (powerline-selected-window-active))
-             (face (if active 'mode-line 'mode-line-inactive))
-             (last-face) ; The last used face, to show the
-                                        ; correct separator after conditional
-                                        ; segments
-             (separator-left (intern (format "powerline-%s-%s"
-                                             (powerline-current-separator)
-                                             (car powerline-default-separator-dir))))
-             (separator-right (intern (format "powerline-%s-%s"
-                                              (powerline-current-separator)
-                                              (cdr powerline-default-separator-dir))))
-             (delim-face (if active 'thblt/mode-line--delimiter face))
-             (space (powerline-raw " " face))
-             (open (powerline-raw " [" delim-face))
-             (open* (powerline-raw "[" delim-face))
-             (close (powerline-raw "]" delim-face))
-             (lhs
+   '(:eval
+     (let* ((active (eq eziam-line--selected-window (selected-window)))
+            (face)
+            (space " ")
+            (open  " [" )
+            (close  "]")
+            (left
+            (concat
+              ;; Project ID, if there's a project
+              (eziam-line--maybe
+               (when (projectile-project-p)
+                 (propertize (format " %s " (projectile-project-name)) 'face (eziam-line--face-maybe-inactive eziam-line-project-id))))
+
+              ;; Buffer id
+              ;; Modified?
+              (when (and buffer-file-name (buffer-modified-p))
+                (powerline-raw " ●"  (eziam-line--face-maybe-inactive eziam-line-buffer-modified)))
+              ;; Read-only?
+              (when buffer-read-only
+                (powerline-raw " "  (eziam-line--face-maybe-inactive eziam-line-buffer-read-only)))
+              ;; Not read-only, has a file, but isn't modified: spaces where the modified marker will appear
+              (when (and buffer-file-name
+                         (not (or (buffer-modified-p)
+                                  buffer-read-only)))
+                ;; @Notice: we're borrowing the narrow face here
+                (powerline-raw " -" (eziam-line--face-maybe-inactive eziam-line-buffer-id)))
+
+              ;; Buffer name
+              (progn
+                (setq face (eziam-line--face-maybe-inactive eziam-line-buffer-id))
+                (powerline-raw
+                 (format " %s " (car mode-line-buffer-identification))
+                 `(:weight ,(if buffer-file-name 'bold 'normal) :inherit ,face)))
+
+              ;; Narrowing indicator
+              (when (buffer-narrowed-p)
+                (propertize " " 'face (eziam-line--face-maybe-inactive eziam-line-buffer-narrowed)))
+
+              space
+              ;; Position
+              (format " %2s:2c " (line-number-at-pos))
+
+              ;; Major mode
+              open
+              (powerline-major-mode `(:inherit ,(eziam-line--face-maybe-inactive mode-line) :weight bold 'r))
+              ;; Minor modes
+              (powerline-minor-modes (eziam-line--face-maybe-inactive mode-line) 'l)
+              close))
+            (right
+             (format-mode-line
               (list
-               ;; Window ID
-               (progn
-                 (setq last-face (thblt/face-maybe-inactive thblt/mode-line--window-id))
-                 (setq face (thblt/face-maybe-inactive thblt/mode-line--buffer-id))
-                 (propertize " 1 " 'face last-face))
+               ;; Version control
+               (when buffer-file-name
+                 (concat
+                  open
+                  (powerline-raw
+                   (concat
+                    "▕ "
+                    (projectile-project-name)
+                    (powerline-vc))
+                   face)
+                  close))
 
-               (funcall separator-left last-face face)
+               space
+               (when (window-parameter (selected-window) 'eziam-line--window-at-bottom-right)
+                 (powerline-raw
+                  (if server-process
+                      (propertize (format " [%s] " server-name) 'face 'eziam-line-server)
+                    ""))))))
+            (available-width (- (window-width) (length left) (length right))))
+       (format "%s%s%s" left (make-string available-width ? ) (format-mode-line right)))))
 
-               ;; Buffer id
-               ;; Modified?
-               (when (and buffer-file-name (buffer-modified-p))
-                 (powerline-raw " ●"  (thblt/face-maybe-inactive thblt/mode-line--buffer-modified)))
-               ;; Read-only?
-               (when buffer-read-only
-                 (powerline-raw " "  'thblt/mode-line--buffer-read-only))
-               ;; Not read-only, has a file, but isn't modified: spaces where the modified marker will appear
-               (when (and buffer-file-name
-                          (not (or (buffer-modified-p)
-                                   buffer-read-only)))
-                 ;; @Notice: we're borrowing the narrow face here
-                 (powerline-raw " -" 'thblt/mode-line--buffer-narrowed))
+  ;; Install utilities
+  (add-hook 'window-configuration-change-hook 'eziam-line--update-state)
+  (add-function :after after-focus-change-function 'eziam-line--update-state)
+  (advice-add 'select-window :after 'eziam-line--update-state)
 
-               ;; Buffer name
-               (progn
-                 (setq last-face (thblt/face-maybe-inactive thblt/mode-line--buffer-id))
-                 ( powerline-raw
-                   " %b "
-                   `(:weight ,(if buffer-file-name 'bold 'normal) :inherit ,last-face)))
+  (eziam-line--update-state))
 
-               ;; Narrowing indicator
-               (when (buffer-narrowed-p)
-                 (powerline-raw "[Narrow] " `(:inherit thblt/mode-line--buffer-narrowed :inherit thblt/mode-line--buffer-id )))
+(defun eziam-line-uninstall nil
+  "Remove support hooks for eziam-line."
+  (interactive)
+  (setq after-make-frame-functions (delete  'eziam-line--update-state after-make-frame-functions))
+  (remove-hook 'window-configuration-change-hook 'eziam-line--update-state)
+  (remove-function after-focus-change-function 'eziam-line--update-state))
 
-               (progn
-                 (setq face (thblt/face-maybe-inactive mode-line))
-                 (funcall separator-left last-face face))
-               ;; Position
-               (powerline-raw " %2l:%3c [%o]    " face)
 
-               ;; Major mode
-               open
-               (powerline-major-mode `(:inherit ,face :weight bold 'r))
-               ;; Minor modes
-               (powerline-minor-modes  face 'l)
-               close
+;;;; Utilities
 
-               space space space space
-
-               ;; open
-               ;; (powerline-raw "⯃ 3 ⯅ 14" face)
-               ;; close
-               ))
-             (rhs (list
-                   ;; Version control
-                   (when buffer-file-name
-                     (concat
-                      open
-                      (powerline-raw
-                       (concat
-                        (projectile-project-name)
-                        (powerline-vc))
-                       face)
-                      close))
-
-                   space
-                   (when  (window-parameter (selected-window) 'thblt/window-at-bottom-right)
-                     (powerline-raw
-                      (if server-process
-                          (propertize (format " [%s] " server-name) 'face 'thblt/mode-line--server)
-                        ""))))
-
-                  ))
-
-        (concat (powerline-render lhs)
-                (powerline-fill face (powerline-width rhs))
-                (powerline-render rhs)))))))
-
-;;;;; Window position tracker
-
-(defun thblt/window-at-bottom-left-p (win)
+(defun eziam-line--window-at-bottom-left-p (win)
   "Return non-nil if WIN is at the bottom left of the frame."
   (not (or
         (window-in-direction 'below win)
         (window-in-direction 'left win))))
 
-(defun thblt/window-at-bottom-right-p (win)
+(defun eziam-line--window-at-bottom-right-p (win)
   "Return non-nil if WIN is at the bottom right of the frame."
   (not (or
         (window-in-direction 'below win)
         (window-in-direction 'right win))))
 
-(defun thblt/update-window-position-parameters (&optional frame)
-  (unless frame (setq frame (selected-frame)))
-  (mapc (lambda (win)
-          (set-window-parameter win 'thblt/window-at-bottom-left (thblt/window-at-bottom-left-p win))
-          (set-window-parameter win 'thblt/window-at-bottom-right (thblt/window-at-bottom-right-p win)))
-        (window-list frame nil)))
+(defun eziam-line--update-state (&rest _)
+  "Update relevant state information"
 
-(add-hook 'window-configuration-change-hook 'thblt/update-window-position-parameters)
+  (let ((frame (selected-frame)))
+    ;; Set selected window
+    ;; (when (not (minibuffer-window-active-p (frame-selected-window frame)))
+    (setq eziam-line--selected-window (frame-selected-window frame))
+    (setq eziam-line--selected-window nil)
 
-;;;;; Installation
+    (dolist (f (frame-list))
+      (when (frame-focus-state f)
+        ;; (message "%s = %s" f (frame-selected-window f))
+        (setq eziam-line--selected-window (frame-selected-window f))))
 
-(thblt/mode-line-set-faces)
-(advice-add 'load-theme :after 'thblt/mode-line-set-faces)
+    (mapc (lambda (win)
+            (set-window-parameter win 'eziam-line--window-at-bottom-left (eziam-line--window-at-bottom-left-p win))
+            (set-window-parameter win 'eziam-line--window-at-bottom-right (eziam-line--window-at-bottom-right-p win)))
+          (window-list frame nil))
 
-(add-to-list 'after-make-frame-functions 'thblt/update-window-position-parameters)
-(unless (daemonp)
-  (thblt/update-window-position-parameters)) ; This is required for
-                                        ; non-daemon instances
-                                        ; where the frame is
-                                        ; created before init.el
-                                        ; gets to run.
+    (force-mode-line-update t)))
 
-(thblt/powerline-theme)
+;;;; Conclusion
+
+;; Make themes discoverable
+;;;###autoload
+(and load-file-name
+     (boundp 'custom-theme-load-path)
+     (add-to-list 'custom-theme-load-path
+                  (file-name-as-directory
+                   (file-name-directory load-file-name))))
 
 (provide 'eziam-line)
+
+;;; eziam-line.el ends here.
